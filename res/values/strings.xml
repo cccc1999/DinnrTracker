@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="app_name">DinnrTracker</string>
+    <string name="action_settings">Settings</string>
+    <string name="action_signup">Sign Up</string>
+    <string name="action_login">Login</string>
+    <string name="action_password">Forgot Password</string>
+    <string name="login_email_hint">Email</string>
+    <string name="login_password_hint">Password</string>
+    <string name="login_invalid_email_error">invalid email address</string>
+    <string name="login_empty_email_error">email cannot be empty</string>
+    <string name="login_empty_password_error">password cannot be empty</string>
+    <string name="login_reset_button">Send Reset Password Instruction</string>
+    <string name="login_sent_button">Reset Password Instruction Sent!</string>
+    <string name="title_activity_track">TrackActivity</string>
+    <string name="hello_world">Hello world!</string>
+
+</resources>

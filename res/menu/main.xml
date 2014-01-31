@@ -1,0 +1,12 @@
+<menu xmlns:android="http://schemas.android.com/apk/res/android" >
+
+    <item
+        android:id="@+id/actionLogin"
+        android:showAsAction="always"
+        android:title="@string/action_login"/>
+    <item
+        android:id="@+id/actionPassword"
+        android:showAsAction="never"
+        android:title="@string/action_password"/>
+
+</menu>
