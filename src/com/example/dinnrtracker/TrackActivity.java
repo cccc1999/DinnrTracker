@@ -18,7 +18,9 @@ import android.content.ContentResolver;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
-import android.view.MenuItem;
+import android.widget.CompoundButton;
+import android.widget.Switch;
+import android.widget.TextView;
 import android.widget.Toast;
 
 public class TrackActivity extends Activity {
@@ -34,65 +36,117 @@ public class TrackActivity extends Activity {
 	private LocationListener locationListener=null;   
 	private double mLatitude;
 	private double mLongitude;
-	 	 
+	
+	private Switch mSwitch;
+	private TextView Statusstr;
+	
+	private Handler mHandler; 
+	private Runnable mRunnable = new Runnable() {
+	    @Override
+	    public void run() {
+	    	uploadData();
+            mHandler.postDelayed(this, HANDLER_DELAY);
+	    }
+	};
+		 	 
 	private Boolean flag = false;  
   
 	@Override  
 	public void onCreate(Bundle savedInstanceState) {
-		 
 		super.onCreate(savedInstanceState);  
 		setContentView(R.layout.activity_track);  
 		 		 
-		locationManager = (LocationManager)getSystemService(Context.LOCATION_SERVICE);  
+		locationManager = (LocationManager)getSystemService(Context.LOCATION_SERVICE);
+		
+		mSwitch = (Switch) findViewById(R.id.statusswitch);
+		Statusstr = (TextView) findViewById(R.id.statusstring);
+		
+		mSwitch.setChecked(true);
+		Statusstr.setText("Uploading current location data.");
+
+		
+		mSwitch.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+		    public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+		        if (isChecked) {
+					locationListener = new MyLocationListener();  
+					locationManager.requestLocationUpdates(LocationManager  
+							.GPS_PROVIDER, GPS_TIME_INTERVAL, GPS_DISTANCE,locationListener);
+		        	mHandler.postDelayed(mRunnable, HANDLER_DELAY);
+		    		Statusstr.setText("Uploading current location data.");
+		        } else {
+		        	mHandler.removeCallbacks(mRunnable);
+		            if(locationManager != null) {
+		            	locationManager.removeUpdates(locationListener);
+		            }
+		            //locationManager = null;
+		    		Statusstr.setText("Not uploading current location data.");
+		        }
+		    }
+		});
 	}  
-  
+  	
 	@Override  
-	public void onResume() {
-		super.onResume();
+	public void onStart() {
+		super.onStart();
+		
 		flag = displayGpsStatus();  
-		if (flag) {  
-			final Handler handler = new Handler();
-			handler.postDelayed(new Runnable() {
-			        public void run() {
-			            obtainLocation();
-			            // Read data and react to changes
-			            /*ref.addValueEventListener(new ValueEventListener() {
-
-			                @Override
-			                public void onDataChange(DataSnapshot snap) {
-			                    System.out.println(snap.getName() + " -> " + snap.getValue());
-			                }
-
-			                @Override public void onCancelled() { }
-			            });*/
-			            handler.postDelayed(this, HANDLER_DELAY);
-			        }
-			    }, HANDLER_DELAY);
+		if (flag) {
+			locationListener = new MyLocationListener();  
+			locationManager.requestLocationUpdates(LocationManager  
+					.GPS_PROVIDER, GPS_TIME_INTERVAL, GPS_DISTANCE,locationListener);
+			mHandler = new Handler();
+			mHandler.postDelayed(mRunnable, HANDLER_DELAY);
 		     
 		} else {  
 			alertbox("Gps Status!!", "Your GPS is: OFF");  
 		}    
 	}
+	
+	@Override
+	public void onBackPressed(){
+	     // do something here and don't write super.onBackPressed()
+	    ParseUser.logOut();
+	    Intent loginIntent = new Intent(this, MainActivity.class);
+	    startActivity(loginIntent);
+	}
+	
+	
 	@Override
 	public void onPause(){
 		super.onPause();
+		mHandler.removeCallbacks(mRunnable);
         if(locationManager != null) {
         	locationManager.removeUpdates(locationListener);
         }
-        locationListener = null;
-        locationManager = null;
+        //locationListener = null;
+        //locationManager = null;
 	}
+	
+	@Override
+	public void onDestroy(){
+		super.onDestroy();
+		locationManager=null;
+	}
+	
+	
+/*	
 	@Override
 	public void onStop(){
 		super.onStop();
         if(locationManager != null) {
         	locationManager.removeUpdates(locationListener);
         }
-        locationListener = null;
-        locationManager = null;
+        //locationListener = null;
+        //locationManager = null;
 	}
-	
-	/*
+*/
+    /*@Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        super.onCreateOptionsMenu(menu);
+        getMenuInflater().inflate(R.menu.track, menu);
+        return true;
+    }
+    
     public boolean onOptionsItemSelected(MenuItem item) {
         // Handle presses on the action bar items
 	    ParseUser.logOut();
@@ -114,13 +168,14 @@ public class TrackActivity extends Activity {
 			return false;  
 		}  
 	}  
-  
+/*  
 	private void obtainLocation(){
 		locationListener = new MyLocationListener();  
 		locationManager.requestLocationUpdates(LocationManager  
-				.GPS_PROVIDER, GPS_TIME_INTERVAL, GPS_DISTANCE,locationListener);  
+				.GPS_PROVIDER, GPS_TIME_INTERVAL, GPS_DISTANCE,locationListener);
+		//locationManager.requestSingleUpdate(LocationManager.GPS_PROVIDER,locationListener);
 	}
-	
+*/	
 	/*----------Method to create an AlertBox ------------- */  
 	protected void alertbox(String title, String mymessage) {  
 		AlertDialog.Builder builder = new AlertDialog.Builder(this);  
@@ -149,33 +204,29 @@ public class TrackActivity extends Activity {
 		alert.show();  
 	}  
    
+	public void uploadData(){
+        // Create a reference to a Firebase location
+        Firebase ref = new Firebase("https://dinnrtracker.firebaseio.com/");
+		Toast.makeText(getBaseContext(),"Lat: " +  
+				mLatitude + " ,Lng: " + mLongitude,  
+				Toast.LENGTH_SHORT).show();
+        // Write data to Firebase
+        Map<String,Double> locationData = new HashMap<String,Double>();
+        locationData.put("Latitude", mLatitude);
+        locationData.put("Longitude", mLongitude);
+
+        ref.setValue(locationData);
+        return;
+	}
+
 	/*----------Listener class to get coordinates ------------- */  
 	private class MyLocationListener implements LocationListener {  
 		@Override  
 		public void onLocationChanged(Location loc) {
 			mLatitude = loc.getLatitude();
 			mLongitude = loc.getLongitude();
-			Toast.makeText(getBaseContext(),"Location changed : Lat: " +  
-					loc.getLatitude()+ " Lng: " + loc.getLongitude(),  
-					Toast.LENGTH_SHORT).show();
-			uploadData();
-            //String longitude = "Longitude: " +loc.getLongitude();    
-            //String latitude = "Latitude: " +loc.getLatitude();  
         }
 		
-		public void uploadData(){
-            // Create a reference to a Firebase location
-            Firebase ref = new Firebase("https://dinnrtracker.firebaseio.com/");
-
-            // Write data to Firebase
-            Map<String,Double> locationData = new HashMap<String,Double>();
-            locationData.put("Latitude", mLatitude);
-            locationData.put("Longitude", mLongitude);
-
-            ref.setValue(locationData);
-            return;
-		}
-  
 		@Override  
 		public void onProviderDisabled(String provider) {  
             // TODO Auto-generated method stub           
