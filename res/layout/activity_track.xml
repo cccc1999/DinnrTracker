@@ -5,22 +5,10 @@
     tools:context=".TrackActivity"
     android:orientation="vertical" >
 
-    <RelativeLayout
-        	android:id="@+id/statuslayout"
-        	android:layout_width="match_parent"
-        	android:layout_height="wrap_content" >
-	    <TextView
-	        android:id="@+id/status"
-	        android:layout_width="wrap_content"
-	        android:layout_height="wrap_content"
-	        android:text="@string/current_status" />
-	    
-	    <TextView
-	        android:id="@+id/statusstring"
-	        android:layout_width="wrap_content"
-	        android:layout_height="wrap_content" 
-	        android:layout_toRightOf="@id/status"/>
-    </RelativeLayout>
+    <TextView
+        android:id="@+id/status"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content" />
     
 	<Switch 
 	    android:id="@+id/statusswitch"

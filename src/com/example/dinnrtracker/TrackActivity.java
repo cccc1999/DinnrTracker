@@ -5,12 +5,12 @@ import java.util.Map;
 
 import com.firebase.client.Firebase;
 import com.parse.ParseUser;
-
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.PowerManager;
 import android.provider.Settings;
 import android.app.Activity;
 import android.app.AlertDialog;
@@ -18,6 +18,8 @@ import android.content.ContentResolver;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.view.View;
+import android.widget.Button;
 import android.widget.CompoundButton;
 import android.widget.Switch;
 import android.widget.TextView;
@@ -30,7 +32,7 @@ public class TrackActivity extends Activity {
 	
 	private static final int GPS_TIME_INTERVAL = 1000*5; 	//GPS collect data every 5000ms
 	private static final int GPS_DISTANCE= 1000;		//GPS collect data every 1000m
-	private static final int HANDLER_DELAY = 1000*5;	//Collect data every 5000ms
+	private static final int HANDLER_DELAY = 1000*5;	//Upload data every 5000ms
 
 	private LocationManager locationManager=null;  
 	private LocationListener locationListener=null;   
@@ -38,7 +40,15 @@ public class TrackActivity extends Activity {
 	private double mLongitude;
 	
 	private Switch mSwitch;
-	private TextView Statusstr;
+	private TextView Status;
+	
+    private enum State {
+        INIT,RESUME
+    };
+    private State mCurrentState;
+	
+	private PowerManager mPowerManager = null;
+	private PowerManager.WakeLock mWakeLock = null;
 	
 	private Handler mHandler; 
 	private Runnable mRunnable = new Runnable() {
@@ -54,16 +64,21 @@ public class TrackActivity extends Activity {
 	@Override  
 	public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);  
-		setContentView(R.layout.activity_track);  
+		setContentView(R.layout.activity_track);
+		
+		mPowerManager = (PowerManager) getSystemService(Context.POWER_SERVICE);
+		mWakeLock = mPowerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "My Tag");
+		mWakeLock.acquire();
 		 		 
 		locationManager = (LocationManager)getSystemService(Context.LOCATION_SERVICE);
 		
 		mSwitch = (Switch) findViewById(R.id.statusswitch);
-		Statusstr = (TextView) findViewById(R.id.statusstring);
+		Status = (TextView) findViewById(R.id.status);
 		
 		mSwitch.setChecked(true);
-		Statusstr.setText("Uploading current location data.");
-
+		Status.setText("Current status: Uploading location data.");
+		
+		mCurrentState = State.INIT;
 		
 		mSwitch.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
 		    public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
@@ -72,14 +87,14 @@ public class TrackActivity extends Activity {
 					locationManager.requestLocationUpdates(LocationManager  
 							.GPS_PROVIDER, GPS_TIME_INTERVAL, GPS_DISTANCE,locationListener);
 		        	mHandler.postDelayed(mRunnable, HANDLER_DELAY);
-		    		Statusstr.setText("Uploading current location data.");
+		    		Status.setText("Current status: Uploading location data.");
 		        } else {
 		        	mHandler.removeCallbacks(mRunnable);
 		            if(locationManager != null) {
 		            	locationManager.removeUpdates(locationListener);
 		            }
 		            //locationManager = null;
-		    		Statusstr.setText("Not uploading current location data.");
+		    		Status.setText("Current status: Not uploading location data.");
 		        }
 		    }
 		});
@@ -88,24 +103,31 @@ public class TrackActivity extends Activity {
 	@Override  
 	public void onStart() {
 		super.onStart();
-		
-		flag = displayGpsStatus();  
-		if (flag) {
-			locationListener = new MyLocationListener();  
-			locationManager.requestLocationUpdates(LocationManager  
-					.GPS_PROVIDER, GPS_TIME_INTERVAL, GPS_DISTANCE,locationListener);
-			mHandler = new Handler();
-			mHandler.postDelayed(mRunnable, HANDLER_DELAY);
-		     
-		} else {  
-			alertbox("Gps Status!!", "Your GPS is: OFF");  
-		}    
+		if(mCurrentState == State.INIT){
+			flag = displayGpsStatus();  
+			if (flag) {
+				locationListener = new MyLocationListener();  
+				locationManager.requestLocationUpdates(LocationManager  
+						.GPS_PROVIDER, GPS_TIME_INTERVAL, GPS_DISTANCE,locationListener);
+				mHandler = new Handler();
+				mHandler.postDelayed(mRunnable, HANDLER_DELAY);
+			     
+			} else {  
+				alertbox("Gps Status!!", "Your GPS is: OFF");  
+			}
+		}
 	}
 	
 	@Override
 	public void onBackPressed(){
 	     // do something here and don't write super.onBackPressed()
 	    ParseUser.logOut();
+		mHandler.removeCallbacks(mRunnable);
+        if(locationManager != null) {
+        	locationManager.removeUpdates(locationListener);
+        }
+		mWakeLock.release();
+		locationManager=null;
 	    Intent loginIntent = new Intent(this, MainActivity.class);
 	    startActivity(loginIntent);
 	}
@@ -114,10 +136,11 @@ public class TrackActivity extends Activity {
 	@Override
 	public void onPause(){
 		super.onPause();
-		mHandler.removeCallbacks(mRunnable);
+		mCurrentState = State.RESUME;
+		/*mHandler.removeCallbacks(mRunnable);
         if(locationManager != null) {
         	locationManager.removeUpdates(locationListener);
-        }
+        }*/
         //locationListener = null;
         //locationManager = null;
 	}
@@ -125,6 +148,11 @@ public class TrackActivity extends Activity {
 	@Override
 	public void onDestroy(){
 		super.onDestroy();
+		mHandler.removeCallbacks(mRunnable);
+        if(locationManager != null) {
+        	locationManager.removeUpdates(locationListener);
+        }
+		mWakeLock.release();
 		locationManager=null;
 	}
 	
